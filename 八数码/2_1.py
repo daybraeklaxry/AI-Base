@@ -3,8 +3,7 @@ import sys
 def get_next_states(state):
     lst = list(state)
     idx = lst.index(0)
-    row = idx // 3
-    col = idx % 3
+    row,col = divmod(idx,3)
     next_states = []
     dire = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # 上下左右四个方向
     for dr, dc in dire:
