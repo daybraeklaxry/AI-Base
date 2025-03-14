@@ -14,9 +14,22 @@ def manhattan(s):
         ta, tb = divmod(t,3) # 目标坐标
         res += abs(a-ta) + abs(b-tb)
     return res
-
 def main():
     s = sys.stdin.readline().strip().split()
+    grid = []
+    for c in s:
+        if c == 'x':  # 转化为0方便后面的操作
+            grid.append(0)
+        else:
+            grid.append(int(c))
+    inv = 0  # 统计逆序数
+    for i in range(9):
+        for j in range(i + 1, 9):
+            if grid[j] and grid[i] and grid[i] > grid[j]:
+                inv += 1
+    if inv % 2 == 1:
+        print("unsolvable")
+        return
     start = ''.join(s) # 形成初始状态的字符串
     target = '12345678x'
     if start == target: # 特判
@@ -47,7 +60,5 @@ def main():
                 new_f = new_g + manhattan(new_state) # 新的估计值
                 if new_state not in visited or visited.get(new_state, float('inf')) > new_g:
                     heapq.heappush(heap, (new_f, new_g, new_state, path + d))
-    print("unsolvable")
-
 if __name__ == "__main__":
     main()
