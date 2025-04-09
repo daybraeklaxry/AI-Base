@@ -12,7 +12,6 @@ def find_the_path(lst, now):
         total_path.append(now)
     return total_path[::-1]
 
-
 def dijkstra(maze):
     rows = len(maze)
     cols = len(maze[0]) 
@@ -26,27 +25,35 @@ def dijkstra(maze):
     lst = {}
     visited = set()
     visited_order = []
+    
     while heap:
         now_g, now = heapq.heappop(heap)
         if now in visited:
             continue
         visited.add(now)
         visited_order.append(now)
+        
+        # 如果当前节点是目标节点，返回路径
         if now == end:
             return find_the_path(lst, now), visited_order
 
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        # 斜对角走法：除了上下左右，还可以走四个斜对角方向
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]:
             x = now[0] + dx
             y = now[1] + dy
             nxt = (x, y)
 
+            # 确保节点在迷宫范围内并且是可行走的
             if 0 <= x < rows and 0 <= y < cols and maze[x][y] == 0:
-                new_g = now_g + 1
+                # 如果是斜着走，代价设置为sqrt(2)，否则为1
+                new_g = now_g + (1 if dx == 0 or dy == 0 else np.sqrt(2))  # 斜着走的代价为sqrt(2)，否则为1
                 if nxt not in g_score or new_g < g_score.get(nxt, float('inf')):
                     lst[nxt] = now
                     g_score[nxt] = new_g
                     heapq.heappush(heap, (new_g, nxt))
 
+
+# 可视化迷宫和路径
 def visualize_maze_with_path(maze, path, visited_order):
     fig, ax = plt.subplots(figsize=(len(maze[0]), len(maze))) # 设置图形大小
     ax.imshow(maze, cmap='Greys', interpolation='nearest')  # 使用灰度色图，并关闭插值
@@ -82,22 +89,30 @@ def visualize_maze_with_path(maze, path, visited_order):
     total_frames = len(visited_order) + len(path)
     
     # 创建动画
-    ani = FuncAnimation(fig, update, frames=total_frames, interval=500, blit=True, repeat=False)
+    ani = FuncAnimation(fig, update, frames=total_frames, interval=1000, blit=True, repeat=False)
     plt.show()
 
 
+# 读取输入
 input = sys.stdin.read().split()
 idx = 0
-n = int(input[idx])
-idx +=1
-m = int(input[idx])
-idx +=1
+n = int(input[idx])  
+idx += 1
+m = int(input[idx])  
+idx += 1
     
 maze = []
 for _ in range(n):
     row = list(map(int, input[idx:idx+m]))
     maze.append(row)
     idx += m
+
 path, visited_order = dijkstra(maze)
-print(len(path) - 1)
+
+print(f"路径长度：{len(path) - 1}")
+
+total_distance = sum(np.sqrt(2) if (path[i][0] != path[i+1][0] and path[i][1] != path[i+1][1]) else 1 for i in range(len(path)-1))
+
+print(f"实际距离（路径总代价）：{total_distance}")
+
 visualize_maze_with_path(maze, path, visited_order)
