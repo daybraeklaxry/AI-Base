@@ -21,11 +21,11 @@ def iddfs(maze):
     iterations = []
     final_path = None
     
-    def dfs(now, depth, visited, lst, current_visited_order):
+    def dfs(now, depth, visited, lst, now_visited_order):
         if depth > max_depth:
             return False
 
-        current_visited_order.append(now)
+        now_visited_order.append(now)
 
         if now == end:
             final_path[:] = find_the_path(lst, now)
@@ -39,7 +39,7 @@ def iddfs(maze):
             nxt = (x, y)
             if 0 <= x < rows and 0 <= y < cols and maze[x][y] == 0 and nxt not in visited:
                 lst[nxt] = now
-                if dfs(nxt, depth + 1, visited, lst, current_visited_order):
+                if dfs(nxt, depth + 1, visited, lst, now_visited_order):
                     return True
         
         visited.remove(now)
@@ -48,19 +48,19 @@ def iddfs(maze):
     while True:
         visited = set()
         lst = {}
-        current_visited_order = []
+        now_visited_order = []
         final_path = []
         
-        if dfs(start, 0, visited, lst, current_visited_order):
+        if dfs(start, 0, visited, lst, now_visited_order):
             iterations.append({
-                "visited_order": current_visited_order,
+                "visited_order": now_visited_order,
                 "found": True,
                 "path": final_path
             })
             break
 
         iterations.append({
-            "visited_order": current_visited_order,
+            "visited_order": now_visited_order,
             "found": False,
             "path": None
         })
@@ -75,31 +75,30 @@ def visualize_maze_with_path(maze, iterations):
     ax.imshow(maze, cmap='Greys', interpolation='nearest')  # 使用灰度色图，并关闭插值
     
     # 设置坐标轴刻度
-    ax.set_xticks(range(len(maze[0])))  # 设置x轴刻度
-    ax.set_yticks(range(len(maze)))  # 设置y轴刻度
-    ax.set_xticks([x - 0.5 for x in range(1, len(maze[0]))], minor=True)  # 设置x轴的次刻度
-    ax.set_yticks([y - 0.5 for y in range(1, len(maze))], minor=True)  # 设置y轴的次刻度
-    ax.grid(which="minor", color="black", linestyle='-', linewidth=2)  # 为次刻度添加网格线
+    ax.set_xticks(range(len(maze[0])))  
+    ax.set_yticks(range(len(maze)))  
+    ax.set_xticks([x - 0.5 for x in range(1, len(maze[0]))], minor=True)  
+    ax.set_yticks([y - 0.5 for y in range(1, len(maze))], minor=True)  
+    ax.grid(which="minor", color="black", linestyle='-', linewidth=2) 
     
     # 初始化散点图和路径线图
-    scatter = ax.scatter([], [], s=10, color='blue', alpha=0.5)  # 用蓝色显示访问过的节点
-    line, = ax.plot([], [], marker='o', markersize=8, color='red', linewidth=3)  # 用红色显示路径
+    scatter = ax.scatter([], [], s=10, color='blue', alpha=0.5)  
+    line, = ax.plot([], [], marker='o', markersize=8, color='red', linewidth=3) 
     
     # 计算总帧数（访问过程+路径绘制）
     total_frames = sum(len(iter["visited_order"]) for iter in iterations)  # 计算所有访问顺序的总帧数
     total_frames += len(iterations[-1]["path"])  # 添加最后路径的帧数
     
-    # 更新函数，用于动画更新每一帧
     def update(frame):
         # 确定当前属于哪个阶段（访问阶段或路径阶段）
         cum_frames = 0
-        current_stage = 0
+        now_stage = 0
         path_stage = False
         
         # 遍历所有的迭代，找到当前帧在哪个迭代阶段
         for i, iter in enumerate(iterations):
             if frame < cum_frames + len(iter["visited_order"]):
-                current_stage = i
+                now_stage = i
                 break
             cum_frames += len(iter["visited_order"])
         
@@ -110,9 +109,9 @@ def visualize_maze_with_path(maze, iterations):
         
         # 访问阶段
         if not path_stage:
-            current_iter = iterations[current_stage]
+            now_iter = iterations[now_stage]
             frames_in_stage = frame - cum_frames
-            visited_x, visited_y = zip(*current_iter["visited_order"][:frames_in_stage+1])
+            visited_x, visited_y = zip(*now_iter["visited_order"][:frames_in_stage+1])
             scatter.set_offsets(np.column_stack([visited_y, visited_x]))  # 更新散点图的位置
             
         # 路径阶段
@@ -129,11 +128,11 @@ def visualize_maze_with_path(maze, iterations):
                 path_x, path_y = zip(*final_iter["path"][:path_frame+1])  # 获取路径的前path_frame个节点
                 line.set_data(path_y, path_x)  # 更新路径线
     
-        return scatter, line  # 返回更新后的散点图和路径线
+        return scatter, line  
     
     # 创建动画，定时调用update函数
     ani = FuncAnimation(fig, update, frames=total_frames, interval=100, blit=True, repeat=False)
-    plt.show()  # 展示动画
+    plt.show()  
 
 # 读取输入
 input = sys.stdin.read().split()

@@ -73,12 +73,12 @@ def visualize_maze_with_path(maze, path, visited_order):
     
     # 动画更新函数
     def update(frame):
-        # 显示已访问的节点，按顺序依次展示
+        # 显示已访问的节点
         if frame < len(visited_order):
             visited_x, visited_y = zip(*visited_order[:frame+1])
             scatter.set_offsets(np.column_stack([visited_y, visited_x]))
         
-        # 显示路径，路径会在已访问节点之后绘制
+        # 显示路径
         if frame >= len(visited_order):
             path_frame = frame - len(visited_order)
             if path_frame < len(path):
