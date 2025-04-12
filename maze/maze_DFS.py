@@ -1,167 +1,197 @@
-import matplotlib.pyplot as plt
+# maze_DFS.py
 import sys
+import math
+import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
 
 # 回溯路径
-def find_the_path(lst, now):
-    total_path = [now]
-    while now in lst:
-        now = lst[now]
-        total_path.append(now)
-    return total_path[::-1]
+def find_path(parent, end_node):
+    path = [end_node]
+    while end_node in parent:
+        end_node = parent[end_node]
+        path.append(end_node)
+    return path[::-1]
 
-def iddfs(maze):
-    rows = len(maze)
-    cols = len(maze[0]) if rows > 0 else 0
-    start = (0, 0)
-    end = (rows - 1, cols - 1)
-    max_depth = 0
+# 查找传送门对
+def find_portals(maze):
+    portals = {}
+    portal_pairs = {}
+    rows, cols = len(maze), len(maze[0])
+    for r in range(rows):
+        for c in range(cols):
+            if maze[r][c] >= 4: 
+                portal_id = maze[r][c]
+                if portal_id not in portals:
+                    portals[portal_id] = []
+                portals[portal_id].append((r, c))
 
-    iterations = []
-    final_path = None
-    
-    def dfs(now, depth, visited, lst, now_visited_order):
-        if depth > max_depth:
-            return False
+    for portal_id, locations in portals.items():
+        if len(locations) == 2: # 确保传送门成对出现
+            p1, p2 = locations[0], locations[1]
+            portal_pairs[p1] = p2
+            portal_pairs[p2] = p1
+    return portal_pairs
 
-        now_visited_order.append(now)
+# 计算路径总代价
+def calculate_cost(maze, path, portal_map):
+    total_cost = 0
+    for i in range(len(path) - 1):
+        curr = path[i]
+        nxt = path[i+1]
+
+        # 检查是否通过传送门移动
+        if curr in portal_map and portal_map[curr] == nxt:
+            total_cost += 0 # 传送代价为0
+            continue
+
+        # 计算基础移动代价
+        dr, dc = nxt[0] - curr[0], nxt[1] - curr[1]
+        base_cost = math.sqrt(2) if dr != 0 and dc != 0 else 1
+
+        # 获取目标单元格类型并计算修正因子
+        modifier = 1
+        cell_type = maze[nxt[0]][nxt[1]]
+        if cell_type == 2: # 沼泽
+            modifier = 2.0
+        elif cell_type == 3: # 加速器
+            modifier = 0.5
+
+        total_cost += base_cost * modifier
+    return total_cost
+
+def dfs(maze, start, end, portal_map):
+    rows, cols = len(maze), len(maze[0])
+    visited = set()
+    parent = {}
+    path_found = None
+    visited_order = []
+
+    stack = [(start, [start])] # (当前节点, 到当前节点的路径) 
+
+    while stack:
+        (now, current_path) = stack.pop()
+
+        if now in visited: # 如果已经访问过，跳过
+            continue
+        visited.add(now)
+        visited_order.append(now)
+
+        # 检查是否是传送门入口
+        if now in portal_map:
+            teleport_dest = portal_map[now]
+            if teleport_dest not in visited:
+                 # 记录父节点，用于回溯
+                parent[teleport_dest] = now # 父节点设为传送门入口
+                # 将传送目标加入栈，路径继承，但此步代价为0 
+                new_path = current_path + [teleport_dest]
+                stack.append((teleport_dest, new_path))
+                continue 
 
         if now == end:
-            final_path[:] = find_the_path(lst, now)
-            return True
+            path_found = current_path
+            break # 找到路径
 
-        visited.add(now)
-        
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]:
-            x = now[0] + dx
-            y = now[1] + dy
-            nxt = (x, y)
-            if 0 <= x < rows and 0 <= y < cols and maze[x][y] == 0 and nxt not in visited:
-                lst[nxt] = now
-                if dfs(nxt, depth + 1, visited, lst, now_visited_order):
-                    return True
-        
-        visited.remove(now)
-        return False
-    
-    while True:
-        visited = set()
-        lst = {}
-        now_visited_order = []
-        final_path = []
-        
-        if dfs(start, 0, visited, lst, now_visited_order):
-            iterations.append({
-                "visited_order": now_visited_order,
-                "found": True,
-                "path": final_path
-            })
-            break
+        # 探索邻居
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]:
+            nr, nc = now[0] + dr, now[1] + dc
+            nxt = (nr, nc)
 
-        iterations.append({
-            "visited_order": now_visited_order,
-            "found": False,
-            "path": None
-        })
-        
-        max_depth += 1
+            # 检查边界、是否是墙、是否已访问
+            if 0 <= nr < rows and 0 <= nc < cols and maze[nr][nc] != 1 and nxt not in visited:
+                parent[nxt] = now
+                new_path = current_path + [nxt]
+                stack.append((nxt, new_path)) # 加入栈进行后续探索
 
-    return iterations
+    return path_found, visited_order # 返回路径和访问顺序
 
-def visualize_maze_with_path(maze, iterations):
-    # 创建图形和轴
-    fig, ax = plt.subplots(figsize=(len(maze[0]), len(maze)))  # 设置图形大小
-    ax.imshow(maze, cmap='Greys', interpolation='nearest')  # 使用灰度色图，并关闭插值
-    
-    # 设置坐标轴刻度
-    ax.set_xticks(range(len(maze[0])))  
-    ax.set_yticks(range(len(maze)))  
-    ax.set_xticks([x - 0.5 for x in range(1, len(maze[0]))], minor=True)  
-    ax.set_yticks([y - 0.5 for y in range(1, len(maze))], minor=True)  
-    ax.grid(which="minor", color="black", linestyle='-', linewidth=2) 
-    
-    # 初始化散点图和路径线图
-    scatter = ax.scatter([], [], s=10, color='blue', alpha=0.5)  
-    line, = ax.plot([], [], marker='o', markersize=8, color='red', linewidth=3) 
-    
-    # 计算总帧数（访问过程+路径绘制）
-    total_frames = sum(len(iter["visited_order"]) for iter in iterations)  # 计算所有访问顺序的总帧数
-    total_frames += len(iterations[-1]["path"])  # 添加最后路径的帧数
-    
+# 可视化 
+def visualize(maze, path, visited_order, title="DFS"):
+    fig, ax = plt.subplots(figsize=(len(maze[0]) * 0.7, len(maze) * 0.7)) # 设置图形大小
+    cmap = plt.cm.colors.ListedColormap(['white', 'black', 'brown', 'lightblue', 'yellow', 'purple', 'orange']) # 定义颜色映射: 0:白, 1:黑, 2:棕(沼泽), 3:浅蓝(加速), 4+:传送门
+    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5] # 颜色边界 (可根据最大传送门ID调整)
+    norm = plt.cm.colors.BoundaryNorm(bounds, cmap.N)
+    ax.imshow(maze, cmap=cmap, norm=norm, interpolation='nearest') # 显示迷宫，使用定义的颜色
+
+    # 绘制网格线
+    ax.set_xticks(np.arange(-.5, len(maze[0]), 1), minor=True)
+    ax.set_yticks(np.arange(-.5, len(maze), 1), minor=True)
+    ax.grid(which="minor", color="black", linestyle='-', linewidth=1)
+    ax.tick_params(which="minor", size=0) # 隐藏次刻度线
+    ax.tick_params(which="major", bottom=False, left=False, labelbottom=False, labelleft=False) # 隐藏主刻度线和标签
+
+    # 初始化访问过的节点（蓝色散点）和最终路径（红色线条）
+    visited_scatter = ax.scatter([], [], s=30, color='blue', alpha=0.6, label='Visited')
+    # 如果路径为空，创建一个空的plot对象，避免legend出错
+    if path:
+        path_line, = ax.plot([], [], marker='o', markersize=5, color='red', linewidth=2, label='Final Path')
+    else:
+        path_line, = ax.plot([], [], label='Final Path') # 空plot
+
+    # 计算总帧数 = 访问顺序帧数 + 路径绘制帧数
+    total_frames = len(visited_order) + len(path)
+
     def update(frame):
-        # 确定当前属于哪个阶段（访问阶段或路径阶段）
-        cum_frames = 0
-        now_stage = 0
-        path_stage = False
-        
-        # 遍历所有的迭代，找到当前帧在哪个迭代阶段
-        for i, iter in enumerate(iterations):
-            if frame < cum_frames + len(iter["visited_order"]):
-                now_stage = i
-                break
-            cum_frames += len(iter["visited_order"])
-        
-        # 判断是否进入路径阶段
-        if frame >= total_frames - len(iterations[-1]["path"]):
-            path_stage = True
-            path_frame = frame - (total_frames - len(iterations[-1]["path"]))
-        
-        # 访问阶段
-        if not path_stage:
-            now_iter = iterations[now_stage]
-            frames_in_stage = frame - cum_frames
-            visited_x, visited_y = zip(*now_iter["visited_order"][:frames_in_stage+1])
-            scatter.set_offsets(np.column_stack([visited_y, visited_x]))  # 更新散点图的位置
-            
-        # 路径阶段
+        # 更新访问过的节点 
+        if frame < len(visited_order):
+            # 获取当前帧需要显示的访问节点
+            current_visited = visited_order[:frame+1]
+            # 提取x, y坐标 (注意 matplotlib 的 scatter 和 plot 使用 (x, y) 即 (列, 行))
+            vy, vx = zip(*current_visited)
+            # 更新散点图数据
+            visited_scatter.set_offsets(np.column_stack([vx, vy]))
+        # 访问节点显示完毕后，开始绘制路径 
         else:
-            final_iter = iterations[-1]  # 获取最后的路径信息
-            all_visited = set()  # 用于存储所有访问过的节点
-            for iter in iterations:
-                all_visited.update(iter["visited_order"])  # 合并所有访问过的节点
-            visited_x, visited_y = zip(*all_visited)  # 提取所有访问节点的x、y坐标
-            scatter.set_offsets(np.column_stack([visited_y, visited_x]))  # 更新散点图显示所有访问的节点
-            
-            # 更新路径，逐渐显示路径节点
-            if path_frame < len(final_iter["path"]):
-                path_x, path_y = zip(*final_iter["path"][:path_frame+1])  # 获取路径的前path_frame个节点
-                line.set_data(path_y, path_x)  # 更新路径线
-    
-        return scatter, line  
-    
-    # 创建动画，定时调用update函数
-    ani = FuncAnimation(fig, update, frames=total_frames, interval=100, blit=True, repeat=False)
-    plt.show()  
+            # 确保所有访问过的节点都已显示
+            if frame == len(visited_order):
+                 vy, vx = zip(*visited_order)
+                 visited_scatter.set_offsets(np.column_stack([vx, vy]))
 
-# 读取输入
-input = sys.stdin.read().split()
-idx = 0
-n = int(input[idx])  
-idx += 1
-m = int(input[idx])  
-idx += 1
-    
-maze = []
-for _ in range(n):
-    row = list(map(int, input[idx:idx+m]))
-    maze.append(row)
-    idx += m
+            # 计算当前在路径绘制阶段的帧数
+            path_frame = frame - len(visited_order)
+            if path_frame < len(path):
+                # 获取当前帧需要显示的路径节点
+                current_path_segment = path[:path_frame+1]
+                # 提取x, y坐标
+                py, px = zip(*current_path_segment)
+                # 更新路径线条数据
+                path_line.set_data(px, py)
 
-iterations = iddfs(maze)
+        # 返回需要更新的图形元素元组 (对于 blitting)
+        return visited_scatter, path_line
 
-print(f"路径长度：{len(iterations[-1]['path']) - 1}")
+    # 创建动画
+    ani = FuncAnimation(fig, update, frames=total_frames,
+                        interval=100, # 每帧之间的延迟（毫秒）
+                        blit=True,    # 使用 blitting 优化绘图速度
+                        repeat=False) # 动画不重复播放
 
-total_distance = 0
-final_path = iterations[-1]['path']
-for j in range(len(final_path) - 1):
-    if final_path[j][0] != final_path[j+1][0] and final_path[j][1] != final_path[j+1][1]:  # 斜着走
-        total_distance += np.sqrt(2)
-    else:  
-        total_distance += 1
+    ax.legend() # 显示图例
+    plt.title(f"{title} Visualization") # 设置标题
+    plt.show()  # 显示动画窗口
 
-print(f"实际距离（路径总代价）：{total_distance}")
+if __name__ == "__main__":
+    lines = sys.stdin.read().splitlines()
+    n, m = map(int, lines[0].split())
+    maze_data = []
+    for i in range(1, n + 1):
+        maze_data.append(list(map(int, lines[i].split())))
 
+    start_node = (0, 0)
+    end_node = (n - 1, m - 1)
 
-# 可视化迷宫及路径
-visualize_maze_with_path(maze, iterations)
+    portal_locations = find_portals(maze_data)
+
+    final_path, visited_nodes = dfs(maze_data, start_node, end_node, portal_locations)
+
+    if final_path:
+        path_len = len(final_path) - 1
+        path_cost = calculate_cost(maze_data, final_path, portal_locations)
+        print(f"DFS - 路径找到!")
+        print(f"步数: {path_len}")
+        print(f"路径总代价: {path_cost:.4f}")
+        # 可视化
+        visualize(maze_data, final_path, visited_nodes, title="DFS")
+    else:
+        print("DFS - 未找到路径")
+        visualize(maze_data, [], visited_nodes, title="DFS (No Path Found)")
