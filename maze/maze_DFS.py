@@ -49,7 +49,7 @@ def calculate_cost(maze, path, portal_map):
         dr, dc = nxt[0] - curr[0], nxt[1] - curr[1]
         base_cost = math.sqrt(2) if dr != 0 and dc != 0 else 1
 
-        # 获取目标单元格类型并计算修正因子
+        # 获取目标单元格类型并计算系数
         modifier = 1
         cell_type = maze[nxt[0]][nxt[1]]
         if cell_type == 2: # 沼泽
@@ -79,6 +79,7 @@ def dfs(maze, start, end, portal_map):
 
         # 检查是否是传送门入口
         if now in portal_map:
+            
             teleport_dest = portal_map[now]
             if teleport_dest not in visited:
                  # 记录父节点，用于回溯
@@ -102,7 +103,6 @@ def dfs(maze, start, end, portal_map):
                 parent[nxt] = now
                 new_path = current_path + [nxt]
                 stack.append((nxt, new_path)) # 加入栈进行后续探索
-
     return path_found, visited_order # 返回路径和访问顺序
 
 # 可视化 
